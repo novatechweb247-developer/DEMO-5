@@ -151,6 +151,7 @@ function AdminPage() {
       <header className="sticky top-0 z-20 border-b bg-background">
         <div className="flex flex-wrap items-center gap-3 px-4 py-3 sm:px-6">
           <h1 className="font-serif text-xl">Admin Center</h1>
+          <Button variant="outline" size="sm" asChild><a href="/admin/inquiries">View enquiries</a></Button>
           <span className="text-xs text-muted-foreground">
             {dirty ? "Unsaved changes" : "All changes saved"}
           </span>

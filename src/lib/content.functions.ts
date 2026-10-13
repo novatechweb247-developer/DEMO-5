@@ -86,3 +86,48 @@ export const adminUpload = createServerFn({ method: "POST" })
     if (error) throw new Error(`Image upload failed: ${error.message}`);
     return { path };
   });
+
+
+const inquirySchema = z.object({
+  name: z.string().trim().min(1).max(120),
+  email: z.string().trim().email().max(254),
+  phone: z.string().trim().max(40).optional().default(""),
+  subject: z.string().trim().min(1).max(180),
+  message: z.string().trim().min(1).max(5000),
+});
+
+export const submitInquiry = createServerFn({ method: "POST" })
+  .inputValidator((d) => inquirySchema.parse(d))
+  .handler(async ({ data }) => {
+    const url = process.env["SUPABASE_URL"] || process.env["VITE_SUPABASE_URL"];
+    const serviceKey = process.env["SUPABASE_SERVICE_ROLE_KEY"];
+    if (!url || !serviceKey) throw new Error("Enquiry storage is not configured. Please try again later.");
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { error } = await supabaseAdmin.from("site_inquiries").insert({
+      name: data.name,
+      email: data.email,
+      phone: data.phone || null,
+      subject: data.subject,
+      message: data.message,
+      status: "new",
+    });
+    if (error) throw new Error("We could not store your enquiry. Please try again.");
+    return { ok: true };
+  });
+
+export const adminListInquiries = createServerFn({ method: "POST" })
+  .inputValidator((d) => keySchema.parse(d))
+  .handler(async ({ data }) => {
+    assertAdminKey(data.key);
+    const url = process.env["SUPABASE_URL"] || process.env["VITE_SUPABASE_URL"];
+    const serviceKey = process.env["SUPABASE_SERVICE_ROLE_KEY"];
+    if (!url || !serviceKey) throw new Error("Enquiry storage is not configured.");
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: inquiries, error } = await supabaseAdmin
+      .from("site_inquiries")
+      .select("id, name, email, phone, subject, message, status, created_at")
+      .order("created_at", { ascending: false })
+      .limit(200);
+    if (error) throw new Error(`Could not load enquiries: ${error.message}`);
+    return { inquiries: inquiries ?? [] };
+  });

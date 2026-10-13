@@ -63,7 +63,7 @@ function ContactPage() {
       <PageHero
         eyebrow="CONTACT THE DEMO"
         title="Start with a simple conversation."
-        description="A clear, welcoming contact experience ready to connect to real details and enquiry handling in a future phase."
+        description="Send an enquiry using the form below. Submissions are saved for the team to review; contact details on this demo page should be replaced with verified business information before launch."
         image="craft"
       />
       <section className="section-space">

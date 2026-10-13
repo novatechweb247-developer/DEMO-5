@@ -168,8 +168,8 @@ function ContactPage() {
                   className="min-h-36 resize-y"
                 />
               </div>
-              <Button type="submit" size="lg" className="w-full sm:w-auto">
-                Prepare Enquiry
+              <Button type="submit" size="lg" className="w-full sm:w-auto" disabled={submitting}>
+                {submitting ? "Sending…" : "Send Enquiry"}
               </Button>
               {notice && (
                 <p role="status" className="rounded-md bg-secondary p-4 text-sm leading-6 text-secondary-foreground">
@@ -177,8 +177,7 @@ function ContactPage() {
                 </p>
               )}
               <p className="text-xs leading-5 text-muted-foreground">
-                This form is a frontend demonstration and does not submit or permanently store
-                information.
+                Your enquiry is sent securely and saved for the team to review. If submission fails, your details will remain in the form so you can try again.
               </p>
             </form>
           </div>

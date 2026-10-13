@@ -1,0 +1,6 @@
+{
+  "name": "The Good Company",
+  "description": "A polished demonstration business website with adaptable services, gallery, about, and contact experiences, complete with an admin center.",
+  "requestFramePermissions": [],
+  "capabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

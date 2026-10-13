@@ -6,15 +6,10 @@ import { assertAdminKey, readRow, writeRow } from "./content.server";
 
 const keySchema = z.object({ key: z.string().min(1).max(500) });
 
-/** Public: the published content (demo defaults fill anything never saved). */
+/** Public reads published content from the persistent database; never disguise storage failure as success. */
 export const getPublishedContent = createServerFn({ method: "GET" }).handler(async () => {
-  try {
-    const row = await readRow("published");
-    return mergeContent(row?.content ?? {});
-  } catch (e) {
-    console.error("Failed to load published content", e);
-    return mergeContent({});
-  }
+  const row = await readRow("published");
+  return mergeContent(row?.content ?? {});
 });
 
 export const publishedContentQuery = queryOptions({
@@ -79,20 +74,15 @@ export const adminUpload = createServerFn({ method: "POST" })
       .replace(/[^a-z0-9]/g, "")
       .slice(0, 5);
     const path = `uploads/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
-    const { inMemoryMedia } = await import("./content.server");
-    inMemoryMedia.set(path, { buffer: bytes, type: data.type });
-    try {
-      const hasConfig =
-        (process.env["SUPABASE_URL"] || process.env["VITE_SUPABASE_URL"]) &&
-        process.env["SUPABASE_SERVICE_ROLE_KEY"];
-      if (hasConfig) {
-        const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-        await supabaseAdmin.storage
-          .from("site-media")
-          .upload(path, bytes, { contentType: data.type, upsert: false });
-      }
-    } catch (e) {
-      console.warn("[Media Upload] Supabase storage upload failed, stored in memory", e);
+    const supabaseUrl = process.env["SUPABASE_URL"] || process.env["VITE_SUPABASE_URL"];
+    const serviceKey = process.env["SUPABASE_SERVICE_ROLE_KEY"];
+    if (!supabaseUrl || !serviceKey) {
+      throw new Error("Persistent media storage is not configured. Configure Supabase server environment variables first.");
     }
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { error } = await supabaseAdmin.storage
+      .from("site-media")
+      .upload(path, bytes, { contentType: data.type, upsert: false });
+    if (error) throw new Error(`Image upload failed: ${error.message}`);
     return { path };
   });

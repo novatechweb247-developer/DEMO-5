@@ -8,6 +8,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { siteContent } from "@/content/site";
+import { useServerFn } from "@tanstack/react-start";
+import { submitInquiry } from "@/lib/content.functions";
 const seo = siteContent.seo.contact;
 export const Route = createFileRoute("/contact")({
   head: () => ({
@@ -25,10 +27,30 @@ export const Route = createFileRoute("/contact")({
   component: ContactPage,
 });
 function ContactPage() {
-  const [notice, setNotice] = useState(false);
-  const submit = (event: FormEvent<HTMLFormElement>) => {
+  const [notice, setNotice] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const sendInquiry = useServerFn(submitInquiry);
+  const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    setNotice(true);
+    const form = event.currentTarget;
+    const formData = new FormData(form);
+    setSubmitting(true);
+    setNotice("");
+    try {
+      await sendInquiry({ data: {
+        name: String(formData.get("name") ?? ""),
+        email: String(formData.get("email") ?? ""),
+        phone: String(formData.get("phone") ?? ""),
+        subject: String(formData.get("subject") ?? ""),
+        message: String(formData.get("message") ?? ""),
+      }});
+      form.reset();
+      setNotice("Thank you — your enquiry has been received and stored.");
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "We could not send your enquiry. Please try again.");
+    } finally {
+      setSubmitting(false);
+    }
   };
   const details = [
     { icon: Phone, label: "Demo phone", value: siteContent.contact.phone },
@@ -41,7 +63,7 @@ function ContactPage() {
       <PageHero
         eyebrow="CONTACT THE DEMO"
         title="Start with a simple conversation."
-        description="A clear, welcoming contact experience ready to connect to real details and enquiry handling in a future phase."
+        description="Send an enquiry using the form below. Submissions are saved for the team to review; contact details on this demo page should be replaced with verified business information before launch."
         image="craft"
       />
       <section className="section-space">
@@ -146,21 +168,16 @@ function ContactPage() {
                   className="min-h-36 resize-y"
                 />
               </div>
-              <Button type="submit" size="lg" className="w-full sm:w-auto">
-                Prepare Enquiry
+              <Button type="submit" size="lg" className="w-full sm:w-auto" disabled={submitting}>
+                {submitting ? "Sending…" : "Send Enquiry"}
               </Button>
               {notice && (
-                <p
-                  role="status"
-                  className="rounded-md bg-secondary p-4 text-sm leading-6 text-secondary-foreground"
-                >
-                  Demo only: your details have not been sent or stored. Connect the final form to an
-                  approved enquiry service before launch.
+                <p role="status" className="rounded-md bg-secondary p-4 text-sm leading-6 text-secondary-foreground">
+                  {notice}
                 </p>
               )}
               <p className="text-xs leading-5 text-muted-foreground">
-                This form is a frontend demonstration and does not submit or permanently store
-                information.
+                Your enquiry is sent securely and saved for the team to review. If submission fails, your details will remain in the form so you can try again.
               </p>
             </form>
           </div>

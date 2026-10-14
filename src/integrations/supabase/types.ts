@@ -26,6 +26,39 @@ export type Database = {
         };
         Relationships: [];
       };
+      site_inquiries: {
+        Row: {
+          created_at: string;
+          email: string;
+          id: number;
+          message: string;
+          name: string;
+          phone: string | null;
+          status: string;
+          subject: string;
+        };
+        Insert: {
+          created_at?: string;
+          email: string;
+          id?: number;
+          message: string;
+          name: string;
+          phone?: string | null;
+          status?: string;
+          subject: string;
+        };
+        Update: {
+          created_at?: string;
+          email?: string;
+          id?: number;
+          message?: string;
+          name?: string;
+          phone?: string | null;
+          status?: string;
+          subject?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: {
       [_ in never]: never;

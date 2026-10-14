@@ -1,53 +1,44 @@
 import { timingSafeEqual } from "crypto";
 
-/** In-memory content storage fallback when database is not connected */
-const inMemoryStore = new Map<string, { content: unknown; updated_at: string }>();
+/** Persistent content operations must never silently fall back to server memory. */
+function requireSupabaseConfig() {
+  const url = process.env["SUPABASE_URL"] || process.env["VITE_SUPABASE_URL"];
+  const key = process.env["SUPABASE_SERVICE_ROLE_KEY"];
+  if (!url || !key) {
+    throw new Error(
+      "Persistent storage is not configured. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in the server environment.",
+    );
+  }
+}
 
-/** In-memory media storage fallback for uploaded assets */
-export const inMemoryMedia = new Map<string, { buffer: Buffer; type: string }>();
-
-/** Throws unless the supplied key matches the server-side admin access key. Defaults to "admin". */
+/** Throws unless the supplied key matches the server-side admin access key. */
 export function assertAdminKey(key: string) {
-  const expected = process.env["ADMIN_ACCESS_KEY"] || "admin";
+  const expected = process.env["ADMIN_ACCESS_KEY"];
+  if (!expected) throw new Error("Admin access is not configured. Set ADMIN_ACCESS_KEY on the server.");
   const a = Buffer.from(String(key ?? ""));
   const b = Buffer.from(expected);
   if (a.length !== b.length || !timingSafeEqual(a, b)) throw new Error("Invalid admin key.");
 }
 
 export async function readRow(id: "draft" | "published") {
-  try {
-    const hasConfig =
-      (process.env["SUPABASE_URL"] || process.env["VITE_SUPABASE_URL"]) &&
-      process.env["SUPABASE_SERVICE_ROLE_KEY"];
-    if (hasConfig) {
-      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-      const { data, error } = await supabaseAdmin
-        .from("site_content")
-        .select("content, updated_at")
-        .eq("id", id)
-        .maybeSingle();
-      if (!error && data) return data;
-    }
-  } catch (err) {
-    console.warn("[Site Content] Supabase read failed — falling back to memory", err);
-  }
-  return inMemoryStore.get(id) ?? null;
+  requireSupabaseConfig();
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const { data, error } = await supabaseAdmin
+    .from("site_content")
+    .select("content, updated_at")
+    .eq("id", id)
+    .maybeSingle();
+  if (error) throw new Error(`Could not read ${id} content from persistent storage: ${error.message}`);
+  return data;
 }
 
 export async function writeRow(id: "draft" | "published", content: unknown) {
+  requireSupabaseConfig();
   const row = { content, updated_at: new Date().toISOString() };
-  inMemoryStore.set(id, row);
-  try {
-    const hasConfig =
-      (process.env["SUPABASE_URL"] || process.env["VITE_SUPABASE_URL"]) &&
-      process.env["SUPABASE_SERVICE_ROLE_KEY"];
-    if (hasConfig) {
-      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-      await supabaseAdmin
-        .from("site_content")
-        .upsert({ id, content: content as never, updated_at: row.updated_at });
-    }
-  } catch (err) {
-    console.warn("[Site Content] Supabase write failed — persisted in memory", err);
-  }
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const { error } = await supabaseAdmin
+    .from("site_content")
+    .upsert({ id, content: content as never, updated_at: row.updated_at });
+  if (error) throw new Error(`Could not save ${id} content to persistent storage: ${error.message}`);
+  return row;
 }

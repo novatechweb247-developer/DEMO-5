@@ -76,7 +76,33 @@ function AdminPage() {
 
   useEffect(() => {
     const k = sessionStorage.getItem(ADMIN_KEY_STORAGE);
-    if (k) load(k).catch(() => sessionStorage.removeItem(ADMIN_KEY_STORAGE));
+    if (!k) return;
+    let active = true;
+    const restore = async () => {
+      try {
+        await verify({ data: { key: k } });
+      } catch {
+        if (active) {
+          sessionStorage.removeItem(ADMIN_KEY_STORAGE);
+          toast.error("Your admin session is no longer valid. Please sign in again.");
+        }
+        return;
+      }
+      try {
+        const r = await getDraft({ data: { key: k } });
+        if (active) {
+          setContent(r.content);
+          setKey(k);
+        }
+      } catch (e) {
+        if (active) {
+          toast.error(e instanceof Error ? e.message : "Could not load saved content. Check storage configuration and try again.");
+        }
+      }
+    };
+    void restore();
+    return () => { active = false; };
+    // Server functions are stable for this mounted page.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -85,10 +111,16 @@ function AdminPage() {
     setBusy(true);
     try {
       await verify({ data: { key: input } });
-      sessionStorage.setItem(ADMIN_KEY_STORAGE, input);
-      await load(input);
     } catch {
       toast.error("That access key is not valid.");
+      setBusy(false);
+      return;
+    }
+    sessionStorage.setItem(ADMIN_KEY_STORAGE, input);
+    try {
+      await load(input);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not load saved content. Check storage configuration and try again.");
     } finally {
       setBusy(false);
     }
@@ -151,6 +183,7 @@ function AdminPage() {
       <header className="sticky top-0 z-20 border-b bg-background">
         <div className="flex flex-wrap items-center gap-3 px-4 py-3 sm:px-6">
           <h1 className="font-serif text-xl">Admin Center</h1>
+          <Button variant="outline" size="sm" asChild><a href="/admin/inquiries">View enquiries</a></Button>
           <span className="text-xs text-muted-foreground">
             {dirty ? "Unsaved changes" : "All changes saved"}
           </span>
